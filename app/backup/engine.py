@@ -1,3 +1,4 @@
+import fnmatch
 import logging
 import os
 import shutil
@@ -30,14 +31,36 @@ def configure_logging() -> None:
 
 
 def _copy_with_shutil(sources: List[str], destination: Path, include_patterns: List[str], exclude_patterns: List[str]) -> None:
+    def should_include(path: Path) -> bool:
+        path_str = str(path)
+        if any(fnmatch.fnmatch(path_str, pattern) for pattern in exclude_patterns):
+            return False
+        if include_patterns:
+            return any(fnmatch.fnmatch(path_str, pattern) for pattern in include_patterns)
+        return True
+
     for src in sources:
         src_path = Path(src)
         dest_path = destination / src_path.name
         if src_path.is_dir():
-            shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
+            for root, dirs, files in os.walk(src_path):
+                root_path = Path(root)
+                rel_root = root_path.relative_to(src_path)
+
+                dirs[:] = [d for d in dirs if should_include(rel_root / d)]
+
+                for file_name in files:
+                    rel_file = rel_root / file_name
+                    if not should_include(rel_file):
+                        continue
+                    source_file = root_path / file_name
+                    target_file = dest_path / rel_file
+                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_file, target_file)
         elif src_path.is_file():
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_path, dest_path)
+            if should_include(Path(src_path.name)):
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_path, dest_path)
         else:
             logger.warning("Skipping unknown path %s", src_path)
 
