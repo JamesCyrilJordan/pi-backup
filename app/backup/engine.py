@@ -32,11 +32,16 @@ def configure_logging() -> None:
 
 def _copy_with_shutil(sources: List[str], destination: Path, include_patterns: List[str], exclude_patterns: List[str]) -> None:
     def is_included(relative_path: Path) -> bool:
-        rel_str = relative_path.as_posix()
-        if any(fnmatch.fnmatch(rel_str, pattern) for pattern in exclude_patterns):
+        rel_str = relative_path.as_posix().lstrip("./")
+        excluded_match = next((pattern for pattern in exclude_patterns if fnmatch.fnmatch(rel_str, pattern)), None)
+        if excluded_match:
+            logger.debug("Skipping %s because it matches exclude pattern %s", rel_str, excluded_match)
             return False
         if include_patterns:
-            return any(fnmatch.fnmatch(rel_str, pattern) for pattern in include_patterns)
+            included = any(fnmatch.fnmatch(rel_str, pattern) for pattern in include_patterns)
+            if not included:
+                logger.debug("Skipping %s because it does not match any include pattern", rel_str)
+            return included
         return True
 
     for src in sources:
@@ -45,6 +50,8 @@ def _copy_with_shutil(sources: List[str], destination: Path, include_patterns: L
         if src_path.is_dir():
             for root, dirs, files in os.walk(src_path):
                 rel_root = Path(root).relative_to(src_path)
+                if rel_root == Path("."):
+                    rel_root = Path()
                 dirs[:] = [
                     d
                     for d in dirs
