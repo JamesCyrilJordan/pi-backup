@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+    <h2>Selected Paths</h2>
+    {% if config.selected_paths %}
+        <ul>
+        {% for path in config.selected_paths %}
+            <li>{{ path }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No paths selected yet. Visit <a href="/browse">Browse</a> to choose files.</p>
+    {% endif %}
+</section>
+
+<section>
+    <h2>Destination</h2>
+    <p>{{ config.destination }}</p>
+</section>
+
+<section>
+    <h2>Retention</h2>
+    <p>Keep last: {{ config.retention.keep_last or 'unlimited' }} | Max age (days): {{ config.retention.max_age_days or 'not set' }}</p>
+</section>
+
+<form action="/run" method="post">
+    <button type="submit">Run Backup</button>
+</form>
+{% endblock %}

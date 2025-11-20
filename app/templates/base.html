@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pi Backup Manager</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+    <h1>Pi Backup Manager</h1>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/browse">Browse</a>
+        <a href="/logs">Logs</a>
+    </nav>
+</header>
+<main>
+    {% block content %}{% endblock %}
+</main>
+<footer>
+    <p>Running on Raspberry Pi - FastAPI</p>
+</footer>
+</body>
+</html>
