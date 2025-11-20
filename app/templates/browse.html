@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Browse</h2>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<p>Current path: {{ current_path }}</p>
+<form id="selection-form" action="/browse" method="post">
+    <input type="hidden" name="selections" id="selections" value="[]">
+    <table>
+        <thead>
+            <tr><th></th><th>Name</th><th>Type</th><th>Size</th></tr>
+        </thead>
+        <tbody>
+        {% for entry in entries %}
+            <tr>
+                <td><input type="checkbox" class="select-item" value="{{ entry.path }}" {% if entry.path in config.selected_paths %}checked{% endif %}></td>
+                <td>
+                    {% if entry.is_dir %}
+                        <a href="/browse?path={{ entry.path }}">{{ entry.name }}/</a>
+                    {% else %}
+                        {{ entry.name }}
+                    {% endif %}
+                </td>
+                <td>{{ 'Directory' if entry.is_dir else 'File' }}</td>
+                <td>{% if entry.size %}{{ entry.size }} bytes{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit">Save Selection</button>
+</form>
+<script>
+    const form = document.getElementById('selection-form');
+    form.addEventListener('submit', (event) => {
+        const selections = Array.from(document.querySelectorAll('.select-item:checked')).map(cb => cb.value);
+        document.getElementById('selections').value = JSON.stringify(selections);
+    });
+</script>
+{% endblock %}

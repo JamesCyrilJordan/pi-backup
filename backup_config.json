@@ -1,0 +1,11 @@
+{
+  "destination": "/mnt/backups",
+  "selected_paths": ["/home/pi/shared"],
+  "allowed_roots": ["/home/pi", "/mnt", "/media"],
+  "include_patterns": [],
+  "exclude_patterns": [],
+  "retention": {
+    "keep_last": 3,
+    "max_age_days": null
+  }
+}
