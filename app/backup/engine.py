@@ -1,3 +1,4 @@
+import fnmatch
 import logging
 import os
 import shutil
@@ -30,12 +31,40 @@ def configure_logging() -> None:
 
 
 def _copy_with_shutil(sources: List[str], destination: Path, include_patterns: List[str], exclude_patterns: List[str]) -> None:
+    def is_included(relative_path: Path) -> bool:
+        rel_str = relative_path.as_posix()
+        if any(fnmatch.fnmatch(rel_str, pattern) for pattern in exclude_patterns):
+            return False
+        if include_patterns:
+            return any(fnmatch.fnmatch(rel_str, pattern) for pattern in include_patterns)
+        return True
+
     for src in sources:
         src_path = Path(src)
         dest_path = destination / src_path.name
         if src_path.is_dir():
-            shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
+            for root, dirs, files in os.walk(src_path):
+                rel_root = Path(root).relative_to(src_path)
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if not any(
+                        fnmatch.fnmatch((rel_root / d).as_posix(), pattern)
+                        for pattern in exclude_patterns
+                    )
+                ]
+
+                for file in files:
+                    rel_file = rel_root / file
+                    if not is_included(rel_file):
+                        continue
+                    src_file = Path(root) / file
+                    dest_file = dest_path / rel_file
+                    dest_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src_file, dest_file)
         elif src_path.is_file():
+            if not is_included(Path(src_path.name)):
+                continue
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src_path, dest_path)
         else:
