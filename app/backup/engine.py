@@ -31,57 +31,12 @@ def configure_logging() -> None:
 
 
 def _copy_with_shutil(sources: List[str], destination: Path, include_patterns: List[str], exclude_patterns: List[str]) -> None:
-    def is_included(relative_path: Path) -> bool:
-        rel_str = relative_path.as_posix().lstrip("./")
-        include_match = next((pattern for pattern in include_patterns if fnmatch.fnmatch(rel_str, pattern)), None)
-        if include_match:
-            logger.debug("Including %s because it matches include pattern %s", rel_str, include_match)
-            return True
-
-        excluded_match = next((pattern for pattern in exclude_patterns if fnmatch.fnmatch(rel_str, pattern)), None)
-        if excluded_match:
-            logger.debug("Skipping %s because it matches exclude pattern %s", rel_str, excluded_match)
+    def should_include(path: Path) -> bool:
+        path_str = str(path)
+        if any(fnmatch.fnmatch(path_str, pattern) for pattern in exclude_patterns):
             return False
-
         if include_patterns:
-            logger.debug("Skipping %s because it does not match any include pattern", rel_str)
-            return False
-
-        return True
-
-    def should_descend(relative_dir: Path) -> bool:
-        rel_str = relative_dir.as_posix().lstrip("./")
-        if rel_str == "":
-            return True
-
-        def has_potential_include() -> bool:
-            if not include_patterns:
-                return True
-            for pattern in include_patterns:
-                if "/" not in pattern:
-                    return True
-                if fnmatch.fnmatch(rel_str, pattern) or pattern.startswith(f"{rel_str}/"):
-                    return True
-            return False
-
-        potential_include = has_potential_include()
-        excluded_match = next((pattern for pattern in exclude_patterns if fnmatch.fnmatch(rel_str, pattern)), None)
-
-        if not include_patterns and excluded_match:
-            logger.debug("Pruning directory %s because it matches exclude pattern %s", rel_str, excluded_match)
-            return False
-
-        if not potential_include:
-            logger.debug("Pruning directory %s because it is not covered by include patterns", rel_str)
-            return False
-
-        if excluded_match and potential_include:
-            logger.debug(
-                "Retaining directory %s despite exclude pattern %s because it matches include patterns",
-                rel_str,
-                excluded_match,
-            )
-
+            return any(fnmatch.fnmatch(path_str, pattern) for pattern in include_patterns)
         return True
 
     for src in sources:
@@ -89,28 +44,23 @@ def _copy_with_shutil(sources: List[str], destination: Path, include_patterns: L
         dest_path = destination / src_path.name
         if src_path.is_dir():
             for root, dirs, files in os.walk(src_path):
-                rel_root = Path(root).relative_to(src_path)
-                if rel_root == Path("."):
-                    rel_root = Path()
-                dirs[:] = [
-                    d
-                    for d in dirs
-                    if should_descend(rel_root / d)
-                ]
+                root_path = Path(root)
+                rel_root = root_path.relative_to(src_path)
 
-                for file in files:
-                    rel_file = rel_root / file
-                    if not is_included(rel_file):
+                dirs[:] = [d for d in dirs if should_include(rel_root / d)]
+
+                for file_name in files:
+                    rel_file = rel_root / file_name
+                    if not should_include(rel_file):
                         continue
-                    src_file = Path(root) / file
-                    dest_file = dest_path / rel_file
-                    dest_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src_file, dest_file)
+                    source_file = root_path / file_name
+                    target_file = dest_path / rel_file
+                    target_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_file, target_file)
         elif src_path.is_file():
-            if not is_included(Path(src_path.name)):
-                continue
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_path, dest_path)
+            if should_include(Path(src_path.name)):
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_path, dest_path)
         else:
             logger.warning("Skipping unknown path %s", src_path)
 
